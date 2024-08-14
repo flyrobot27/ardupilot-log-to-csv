@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
-
+from collections import defaultdict
+from typing import Dict
 
 class LogFormat:
     FORMAT = format_mapping = {
@@ -26,22 +27,33 @@ class LogFormat:
         "Q": "uint64_t"
     }
 
-    def __init__(self, length: int, name: str, format: str, column_string: str) -> None:
-        self.length = length
-        self.name = name
-        self.columns = column_string.split(',')
-        self.format = self.__extract_data_format(format, self.columns)
+    def __init__(self, type: int, length: int, name: str, format: str, column_string: str) -> None:
+        self.type = int(type)
+        self.length = int(length)
+        self.name = str(name)
+        self.columns = str(column_string).split(',')
+        self.format = self.__extract_data_format(str(format), self.columns)
+
+    def get_expected_column_count(self) -> int:
+        """Get the expected number of columns
+
+        Returns:
+            int: number of columns
+        """
+        return len(self.columns)
 
     def __extract_data_format(self, format_string: str, columns: list) -> dict:
         
         format_dict = dict()
-
         for index, char in enumerate(format_string):
             dt_type = self.FORMAT.get(char, None)
+
             if dt_type is None:
                 raise ValueError(f'Unknown data type in column: {char}')
+
             c = columns[index]
             format_dict[c] = dt_type
+
         return format_dict
 
     def __str__(self) -> str:
@@ -50,35 +62,72 @@ class LogFormat:
     def __repr__(self) -> str:
         return str(self)
 
+
+class OutputFile:
+    """Output file object
+    """
+
+    def __init__(self, columns: list, file_name: Path) -> None:
+        self.columns = columns
+        self.file_name = file_name
+        self.data = list()
+    
+    def add_data(self, data: list):
+        self.data.append(data)
+    
+    def write(self):
+        with open(self.file_name, 'w') as f:
+            f.write(','.join(self.columns) + '\n')
+            for d in self.data:
+                f.write(','.join(d) + '\n')
+
+
 class LogParser:
+    """Parse the .log file into separate files based on the format specified in the FMT messages
+    """
+
     def __init__(self, log_file_path: Path, output_dir: Path) -> None:
+        """Initialize the LogParser object
+
+        Args:
+            log_file_path (Path): log file path
+            output_dir (Path): output directory path
+        """
         self.log_file_path = log_file_path
         self.output_dir = output_dir
 
-        self.format_dict = dict()
+        self.format_dict: Dict[str, LogFormat] = dict()
+        self.output_csv: Dict[str, OutputFile] = dict()
     
+
     def parse(self):
+        """Parse the log file
+        """
         with open(self.log_file_path, 'r') as log_file:
-            for line in log_file:
+            for line_no, line in enumerate(log_file):
                 line = line.strip()
                 if not line:
                     continue
                 
                 if line.startswith('FMT'):
-                    self.__parse_format_line(line)
+                    self.__parse_format_line(line, line_no)
                 else:
-                    self.__parse_data_line(line)
+                    self.__parse_data_line(line, line_no)
     
-    def __parse_format_line(self, line: str):
+    def __split_line(self, line: str):
+        return [t.strip() for t in line.split(', ')]
+
+
+    def __parse_format_line(self, line: str, line_no: int):
         # FMT messages specifies the following format:
         # Type, Length, Name, Format, Columns
         # e.g.: FMT, 128, 89, FMT, BBnNZ, Type,Length,Name,Format,Columns
         # Note the columns are separated by commas with no spaces
 
-        parts = [t.strip() for t in line.split(', ')]
+        parts = self.__split_line(line)
         if len(parts) != 6 or not parts[0] == 'FMT':
             # this could be a mis-classified data line
-            self.__parse_data_line(line)
+            self.__parse_data_line(line, line_no)
             return
         
         dt_type = parts[1]
@@ -87,15 +136,44 @@ class LogParser:
         dt_format = parts[4]
         dt_columns = parts[5]
 
-        log_format = LogFormat(dt_length, dt_name, dt_format, dt_columns)
+        log_format = LogFormat(dt_type, dt_length, dt_name, dt_format, dt_columns)
 
-        self.format_dict[dt_type] = log_format
-        print(self.format_dict)
+        self.format_dict[dt_name] = log_format
 
 
-    def __parse_data_line(self, line: str):
-        pass
+    def __parse_data_line(self, line: str, line_no: int):
+        parts = self.__split_line(line)
+        name = parts[0]
+        if name not in self.format_dict:
+            print("Warning: Unknown format for line: ", line)
+            return
+        
+        log_format = self.format_dict[name]
+        expected_columns = log_format.get_expected_column_count()
+        data = parts[1:]
+
+        if len(data) != expected_columns:
+            raise ValueError(f'Error on Line {line_no}. Expected {expected_columns} columns, got {len(data)}')
+        
+
+        if name not in self.output_csv:
+            print(f'Creating output file for {name}')
+            output_file_path = self.output_dir / Path(name).with_suffix('.csv')
+            columns = log_format.columns.copy()
+            for c in log_format.columns:
+                columns.append(f'{c}_type')
             
+            self.output_csv[name] = OutputFile(columns, output_file_path)
+        
+        data.extend([log_format.format[c] for c in log_format.columns])
+        self.output_csv[name].add_data(data)
+            
+    def write_csv_files(self) -> None:
+        """Write the output csv files
+        """
+        for output_file in self.output_csv.values():
+            output_file.write()
+
 
 def main():
     parser = argparse.ArgumentParser(description='Parse ardupilot .log file into separate files')
@@ -122,7 +200,9 @@ def main():
     
     log_parser = LogParser(log_file_path, output_dir_path)
     log_parser.parse()
-
+    print("Parsing complete")
+    log_parser.write_csv_files()
+    print("CSV files written")
 
 if __name__ == '__main__':
     try:
@@ -130,3 +210,6 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print('Exiting...')
         exit(0)
+    except ValueError as e:
+        print(f'{e.args[0]}')
+        exit(1)
