@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 from collections import defaultdict
 from typing import Dict
+import json
 
 class LogFormat:
     FORMAT = format_mapping = {
@@ -67,19 +68,29 @@ class OutputFile:
     """Output file object
     """
 
-    def __init__(self, columns: list, file_name: Path) -> None:
+    def __init__(self, columns: list, file_name: Path, datatypes: list) -> None:
         self.columns = columns
         self.file_name = file_name
+        self.datatypes = datatypes
         self.data = list()
-    
+
     def add_data(self, data: list):
         self.data.append(data)
     
     def write(self):
         with open(self.file_name, 'w') as f:
+            # write the header
             f.write(','.join(self.columns) + '\n')
             for d in self.data:
                 f.write(','.join(d) + '\n')
+
+        # add a json type definition file
+        json_file = self.file_name.with_suffix('.json')
+        print("Creating JSON datatype file: ", json_file)
+        with open(json_file, 'w') as f:
+            # map the columns to the datatypes
+            column_datatype = dict(zip(self.columns, self.datatypes))
+            f.write(json.dumps(column_datatype, indent=4))
 
 
 class LogParser:
@@ -160,12 +171,9 @@ class LogParser:
             print(f'Creating output file for {name}')
             output_file_path = self.output_dir / Path(name).with_suffix('.csv')
             columns = log_format.columns.copy()
-            for c in log_format.columns:
-                columns.append(f'{c}_type')
-            
-            self.output_csv[name] = OutputFile(columns, output_file_path)
+            datatypes = [log_format.format[c] for c in log_format.columns]            
+            self.output_csv[name] = OutputFile(columns, output_file_path, datatypes)
         
-        data.extend([log_format.format[c] for c in log_format.columns])
         self.output_csv[name].add_data(data)
             
     def write_csv_files(self) -> None:
