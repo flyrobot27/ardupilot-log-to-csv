@@ -1,8 +1,8 @@
-# Ardupilot .LOG Splitter
+# Ardupilot .log to .csv
 
-Convert Ardupilot .LOG file to .CSV files (with .JSON specifying data types)
+Convert Ardupilot .log file to .csv files (with .json specifying data types)
 
-To generate a .LOG file, use [Mission Planner](https://github.com/ArduPilot/MissionPlanner) to download the .BIN log of the drone. After that, use `Convert .bin to .log` function (Same place as downloading .bin log) to obtain a .log file.
+To generate a .log file, use [Mission Planner](https://github.com/ArduPilot/MissionPlanner) to download the .bin log of the drone. After that, use `Convert .bin to .log` function (Same place as downloading .bin log) to obtain a .log file.
 
 The .log file is meant to present the data in a more human readable format. However, since I need to process a specific message type and the lack of existing tools, I've created this command line tool to help with such process.
 
