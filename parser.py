@@ -4,6 +4,8 @@ from typing import Dict
 import json
 
 class LogFormat:
+    """Represents the format of a FMT message"""
+
     FORMAT = format_mapping = {
         "a": "int16_t[32]",
         "b": "int8_t",
@@ -64,8 +66,7 @@ class LogFormat:
 
 
 class OutputFile:
-    """Output file object
-    """
+    """Output file object to write the data to a csv / json file"""
 
     def __init__(self, columns: list, file_name: Path, datatypes: list) -> None:
         self.columns = columns
