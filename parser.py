@@ -206,6 +206,12 @@ def main():
             parser.error(f'Could not create output directory: {e}')
     else:
         print(f'Output directory {output_dir_path} already exists. Files will be overwritten.')
+        # ask for continue
+        response = input('Do you want to continue? [y/n]: ')
+        if response.lower() != 'y':
+            print('Exiting...')
+            exit(0)
+        
     
     log_parser = LogParser(log_file_path, output_dir_path)
     log_parser.parse()
