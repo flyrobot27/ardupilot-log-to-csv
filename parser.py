@@ -45,7 +45,6 @@ class LogFormat:
         return len(self.columns)
 
     def __extract_data_format(self, format_string: str, columns: list) -> dict:
-        
         format_dict = dict()
         for index, char in enumerate(format_string):
             dt_type = self.FORMAT.get(char, None)
@@ -75,8 +74,13 @@ class OutputFile:
         self.data = list()
 
     def add_data(self, data: list):
+        """Add data to the output file
+
+        Args:
+            data (list): csv row for the output file
+        """
         self.data.append(data)
-    
+
     def write(self):
         with open(self.file_name, 'w') as f:
             # write the header
@@ -109,7 +113,6 @@ class LogParser:
 
         self.format_dict: Dict[str, LogFormat] = dict()
         self.output_csv: Dict[str, OutputFile] = dict()
-    
 
     def parse(self):
         """Parse the log file
@@ -124,10 +127,9 @@ class LogParser:
                     self.__parse_format_line(line, line_no)
                 else:
                     self.__parse_data_line(line, line_no)
-    
+
     def __split_line(self, line: str):
         return [t.strip() for t in line.split(', ')]
-
 
     def __parse_format_line(self, line: str, line_no: int):
         # FMT messages specifies the following format:
@@ -140,7 +142,7 @@ class LogParser:
             # this could be a mis-classified data line
             self.__parse_data_line(line, line_no)
             return
-        
+
         dt_type = parts[1]
         dt_length = parts[2]
         dt_name = parts[3]
@@ -151,21 +153,19 @@ class LogParser:
 
         self.format_dict[dt_name] = log_format
 
-
     def __parse_data_line(self, line: str, line_no: int):
         parts = self.__split_line(line)
         name = parts[0]
         if name not in self.format_dict:
             print("Warning: Unknown format for line: ", line)
             return
-        
+
         log_format = self.format_dict[name]
         expected_columns = log_format.get_expected_column_count()
         data = parts[1:]
 
         if len(data) != expected_columns:
             raise ValueError(f'Error on Line {line_no}. Expected {expected_columns} columns, got {len(data)}')
-        
 
         if name not in self.output_csv:
             print(f'Creating output file for {name}')
@@ -173,9 +173,9 @@ class LogParser:
             columns = log_format.columns.copy()
             datatypes = [log_format.format[c] for c in log_format.columns]            
             self.output_csv[name] = OutputFile(columns, output_file_path, datatypes)
-        
+
         self.output_csv[name].add_data(data)
-            
+
     def write_csv_files(self) -> None:
         """Write the output csv files
         """
@@ -194,7 +194,7 @@ def main():
 
     if not log_file_path.exists():
         parser.error(f'File {log_file_path} does not exist')
-    
+
     if not log_file_path.is_file():
         parser.error(f'{log_file_path} is not a file')
 
@@ -211,13 +211,14 @@ def main():
         if response.lower() != 'y':
             print('Exiting...')
             exit(0)
-        
-    
+
+
     log_parser = LogParser(log_file_path, output_dir_path)
     log_parser.parse()
     print("Parsing complete")
     log_parser.write_csv_files()
     print("CSV files written")
+
 
 if __name__ == '__main__':
     try:
