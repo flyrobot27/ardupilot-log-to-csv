@@ -201,10 +201,11 @@ def main():
     if not output_dir_path.is_dir():
         try:
             output_dir_path.mkdir(parents=True)
+            print(f'Created output directory {output_dir_path}')
         except Exception as e:
             parser.error(f'Could not create output directory: {e}')
     else:
-        print(f'Output directory {output_dir_path} already exists')
+        print(f'Output directory {output_dir_path} already exists. Files will be overwritten.')
     
     log_parser = LogParser(log_file_path, output_dir_path)
     log_parser.parse()
