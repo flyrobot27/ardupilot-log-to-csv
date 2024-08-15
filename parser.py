@@ -1,6 +1,5 @@
 import argparse
 from pathlib import Path
-from collections import defaultdict
 from typing import Dict
 import json
 
